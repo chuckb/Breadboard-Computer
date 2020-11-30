@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="Breadboard Computer" board="Alchitry Au" language="Lucid" version="3">
+  <files>
+    <src top="true">au_top.luc</src>
+    <src>clock.luc</src>
+    <component>pipeline.luc</component>
+    <component>counter.luc</component>
+    <component>reset_conditioner.luc</component>
+    <component>edge_detector.luc</component>
+    <component>button_conditioner.luc</component>
+    <constraint lib="true">alchitry.acf</constraint>
+    <constraint lib="true">io.acf</constraint>
+    <constraint lib="true">au.xdc</constraint>
+  </files>
+</project>

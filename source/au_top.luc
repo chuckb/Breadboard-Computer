@@ -1,0 +1,112 @@
+/******************************************************************************
+
+   The MIT License (MIT)
+
+   Copyright (c) 2020 Charles Benedict
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+
+   *****************************************************************************/
+
+/******************************************************************************
+  Ben Eaters Breadboard Computer, Implemented In an FPGA
+   
+  Test out clock module.
+   Requirements:
+     - Alchitry Au Board
+     - Alchitry IO Elements Board
+     - V1.2.4 Alchitry Labs IDE
+   IO
+     - switch[0][0] auto_manualb clock control (far right switch, far right bank)
+     - switch[0][1] halt signal
+     - button[0] manual clock control signal (top button)
+     - LED[0][0] clock pulse indicator (far right LED, far right group)
+  
+   *****************************************************************************/
+
+module au_top (
+    input clk,              // 100MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input usb_rx,           // USB->Serial input
+    output usb_tx,          // USB->Serial output
+    output io_led [3][8],   // LEDs on IO Shield
+    output io_seg [8],      // 7-segment LEDs on IO Shield
+    output io_sel [4],      // Digit select on IO Shield
+    input io_button [5],    // 5 buttons on IO Shield
+    input io_dip [3][8]     // DIP switches on IO Shield
+  ) {
+  
+  sig rst;                  // reset signal
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    // Debouncer for the auto_manual clock control selector switch
+    button_conditioner auto_manual_conditioner;
+    // Debouncer for the manual clock control button
+    button_conditioner advance_conditioner;
+    // Timer for lighting clock LED when manual advance is clicked
+    counter advance_hold_ctr (#SIZE(24));  // Roughly 1/6 of a second on a 100Mhz Au board
+    .rst(rst) {
+      clock clock;                         // The device under test
+      dff manual_advance_indicator;        // hold the state of the manual advance indicator LED
+    }
+  }
+  
+  always {
+    // Boilerplate initialization code
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    
+    usb_tx = usb_rx;        // loop serial port
+    
+    led = 8h00;             // turn LEDs off
+    
+    io_led = 3x{{8h00}};    // turn LEDs off
+    io_seg = 8hff;          // turn segments off
+    io_sel = 4hf;           // select no digits
+
+    advance_hold_ctr.rst = 0;                    // Set default reset state for advance hold counter
+    
+    advance_conditioner.in = io_button[0];       // Wire up manual clock advance button to debouncer 
+    auto_manual_conditioner.in = io_dip[0][0];   // Wire up auto/manual clock switch to debouncer
+
+    if (clock.out) {                             // If clock goes high...
+      advance_hold_ctr.rst = 1;                  // Reset the advance hold counter
+      manual_advance_indicator.d = 1;            // And turn on the advance hold indicator state
+    }
+    if (&advance_hold_ctr.value)                 // If the advance hold counter gets to the top
+      manual_advance_indicator.d = 0;            // Turn off the advance hold indicator state
+
+    // Wire up the clock input signals      
+    clock.halt = io_dip[0][1];
+    clock.auto_manualb = auto_manual_conditioner.out;
+    clock.advance = advance_conditioner.out;
+    clock.period = 100000000;                   // One period will be fixed to 1 second on the 100Mhz Au board
+    
+    // Combination logic to show clock pulse.
+    // Note that a manual tick will show the LED longer because the 
+    // actual clock.out will only last for one Au clock cycle.    
+    io_led[0][0] = 
+      (clock.out & auto_manual_conditioner.out) | 
+      (manual_advance_indicator.q & ~auto_manual_conditioner.out);
+  }
+}
