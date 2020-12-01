@@ -28,47 +28,83 @@
   Ben Eaters Breadboard Computer, Implemented In an FPGA
    
   This clock module implements the auto/manual advance clock as illustrated
-  by Ben Eater's Breadboard Computer project.  
-   *****************************************************************************/
+  by Ben Eater's Breadboard Computer project.
+   
+  *****************************************************************************/
 
 module clock (
-    input clk,            // an input clock signal
-    input rst,            // global reset
-    output out,           // our clock module's output signal
-    output outb,          // inverted output signal
-    input period[29],     // period to delay clock
-    input auto_manualb,   // high if clock should free run, or low for manual step
-    input halt,           // halts the clock
-    input advance         // manual clock advance of one tick
+    input clk,              // an input clock signal
+    input rst,              // global reset
+    output out,             // our clock module's output signal
+    output outb,            // inverted output signal
+    output clock_indicator, // signal to give visual feedback of clock state
+    input period[29],       // period to delay clock
+    input auto_manualb,     // high if clock should free run, or low for manual step
+    input halt,             // halts the clock
+    input advance           // manual clock advance of one tick
   ) {
 
   sig clock_state;        // holds the current state of the clock (high/low)
   
   .clk(clk) {
-    .rst(rst) {
-      dff ctr[29];          // enough bits for 5 second free running pulse @ 100 Mhz
-      dff scaled_clock;     // hold the current state of the scaled down auto clock pulse
-    }
+    // Debouncer for the auto_manual clock control selector switch
+    button_conditioner auto_manual_conditioner;
+    
+    // Debouncer for the manual clock control button
+    button_conditioner advance_conditioner;
+
     // edge detects when the advance signal is raised
     edge_detector advanced (#RISE(1), #FALL(0));
+    
+    // Timer for lighting clock LED when manual advance is clicked
+    // Roughly 1/6 of a second on a 100Mhz Au board
+    counter advance_hold_ctr (#SIZE(24));
+    
+    .rst(rst) {
+      dff ctr[29];                         // enough bits for 5 second free running pulse @ 100 Mhz
+      dff scaled_clock;                    // hold the current state of the scaled down auto clock pulse
+      dff manual_advance_indicator;        // hold the state of the manual advance indicator (an LED presumably)
+    }
    }
   
   always {
     // Define the clock state based on signals defined within clock schematic
-    clock_state = ~halt & ((auto_manualb & scaled_clock.q) | (~auto_manualb & advanced.out));
+    clock_state = ~halt & 
+      ((auto_manual_conditioner.out & scaled_clock.q) | 
+      (~auto_manual_conditioner.out & advanced.out));
+
+    // Manual advance hold feature for indicator L
+    advance_hold_ctr.rst = 0;                    // Set default reset state for advance hold counter
+    if (clock_state) {                           // If clock goes high...
+      advance_hold_ctr.rst = 1;                  // Reset the advance hold counter
+      manual_advance_indicator.d = 1;            // And turn on the advance hold indicator state
+    }
+    if (&advance_hold_ctr.value)                 // If the advance hold counter gets to the top
+      manual_advance_indicator.d = 0;            // Turn off the advance hold indicator state
+
+    // Connect debouncer to auto_manual signal
+    auto_manual_conditioner.in = auto_manualb;
     
+    // Connect debouncer to advance signal
+    advance_conditioner.in = advance;
+        
     // Set out the clock output signals based on internal clock state
     out = clock_state;
     outb = ~clock_state;
+    // The clock indicator is either the state of the clock if in auto mode,
+    // or is the state of the manual advance indicator if manual. 
+    clock_indicator =       
+      (clock_state & auto_manual_conditioner.out) | 
+      (manual_advance_indicator.q & ~auto_manual_conditioner.out);
 
     // Advance interal counter
     ctr.d = ctr.q + 1;
     
     // Assign edge detector to advance input signal
-    advanced.in = advance;
+    advanced.in = advance_conditioner.out;
 
     // Cap the internal counter based on desired period
-    if (ctr.q == period) {
+    if (ctr.q >= period) {
       ctr.d = 0;
       // Flip the scaled clock state
       scaled_clock.d = ~scaled_clock.q;

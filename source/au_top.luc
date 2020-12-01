@@ -33,10 +33,12 @@
      - Alchitry IO Elements Board
      - V1.2.4 Alchitry Labs IDE
    IO
-     - switch[0][0] auto_manualb clock control (far right switch, far right bank)
-     - switch[0][1] halt signal
-     - button[0] manual clock control signal (top button)
-     - LED[0][0] clock pulse indicator (far right LED, far right group)
+     - io_dip[0][0] auto_manualb clock control (far right switch, far right bank)
+     - io_dip[0][1] halt signal
+     - io_button[0] faster clock button
+     - io_button[1] manual clock control signal (center button)
+     - io_button[2] slower clock button
+     - io_led[0][0] clock pulse indicator (far right LED, far right group)
   
    *****************************************************************************/
 
@@ -53,21 +55,31 @@ module au_top (
     input io_dip [3][8]     // DIP switches on IO Shield
   ) {
   
-  sig rst;                  // reset signal
+  sig rst;                          // reset signal
+  sig auto_manualb_switch;          // give nice name to auto/manual switch
+  sig manual_clock_advance_button;  // give nice name to advance button
+  sig faster_button;                // give nice name to button speeding up clock
+  sig slower_button;                // give nice name to button slowing down clock
   
   .clk(clk) {
     // The reset conditioner is used to synchronize the reset signal to the FPGA
     // clock. This ensures the entire FPGA comes out of reset at the same time.
     reset_conditioner reset_cond;
-    // Debouncer for the auto_manual clock control selector switch
-    button_conditioner auto_manual_conditioner;
-    // Debouncer for the manual clock control button
-    button_conditioner advance_conditioner;
-    // Timer for lighting clock LED when manual advance is clicked
-    counter advance_hold_ctr (#SIZE(24));  // Roughly 1/6 of a second on a 100Mhz Au board
+    
+    // Debouncer and edge detector for the faster clock button
+    button_conditioner faster_conditioner;
+    edge_detector faster_edge (#RISE(1), #FALL(0));
+
+    // Debouncer and edge detector for the slower clock button
+    button_conditioner slower_conditioner;
+    edge_detector slower_edge (#RISE(1), #FALL(0));
+    
     .rst(rst) {
-      clock clock;                         // The device under test
-      dff manual_advance_indicator;        // hold the state of the manual advance indicator LED
+      clock clock;                         // The clock module that we are testing
+      
+      // DFF to store state of current clock period scaler
+      // Provide a default value for our clock period (about 0.16 seconds)
+      dff current_period[29] (#INIT(1 << 24));              
     }
   }
   
@@ -83,30 +95,36 @@ module au_top (
     io_led = 3x{{8h00}};    // turn LEDs off
     io_seg = 8hff;          // turn segments off
     io_sel = 4hf;           // select no digits
-
-    advance_hold_ctr.rst = 0;                    // Set default reset state for advance hold counter
     
-    advance_conditioner.in = io_button[0];       // Wire up manual clock advance button to debouncer 
-    auto_manual_conditioner.in = io_dip[0][0];   // Wire up auto/manual clock switch to debouncer
+    // Assign user interface to nice names
+    auto_manualb_switch = io_dip[0][0];
+    manual_clock_advance_button = io_button[1];
+    faster_button = io_button[0];
+    slower_button = io_button[2];
 
-    if (clock.out) {                             // If clock goes high...
-      advance_hold_ctr.rst = 1;                  // Reset the advance hold counter
-      manual_advance_indicator.d = 1;            // And turn on the advance hold indicator state
+    // Assign faster/slower clock inputs their conditioners and edge detectors
+    faster_conditioner.in = faster_button;
+    slower_conditioner.in = slower_button;
+    faster_edge.in = faster_conditioner.out;
+    slower_edge.in = slower_conditioner.out;
+    
+    // Bit shift right if clock is to go faster (but don't roll off end)
+    if (faster_edge.out & ~current_period.q[0]) {
+      current_period.d = current_period.q >> 1;
     }
-    if (&advance_hold_ctr.value)                 // If the advance hold counter gets to the top
-      manual_advance_indicator.d = 0;            // Turn off the advance hold indicator state
 
-    // Wire up the clock input signals      
-    clock.halt = io_dip[0][1];
-    clock.auto_manualb = auto_manual_conditioner.out;
-    clock.advance = advance_conditioner.out;
-    clock.period = 100000000;                   // One period will be fixed to 1 second on the 100Mhz Au board
+    // Bit shift left if clock is to go slower (but don't overflow)
+    if (slower_edge.out & ~current_period.q[28]) {
+      current_period.d = current_period.q << 1;
+    }
     
-    // Combination logic to show clock pulse.
-    // Note that a manual tick will show the LED longer because the 
-    // actual clock.out will only last for one Au clock cycle.    
-    io_led[0][0] = 
-      (clock.out & auto_manual_conditioner.out) | 
-      (manual_advance_indicator.q & ~auto_manual_conditioner.out);
+    // Wire up the clock input signals      
+    clock.halt = io_dip[0][1];                         // Wire up halt switch
+    clock.advance = manual_clock_advance_button;       // Wire up manual clock advance button 
+    clock.auto_manualb = auto_manualb_switch;          // Wire up auto/manual clock switch
+    clock.period = current_period.q;                   // One period will be fixed to 1 second on the 100Mhz Au board
+
+    // Assign the clock pulse indicator to an LED    
+    io_led[0][0] = clock.clock_indicator;
   }
 }
