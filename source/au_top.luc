@@ -27,59 +27,41 @@
 /******************************************************************************
   Ben Eaters Breadboard Computer, Implemented In an FPGA
    
-  Test out clock module.
+  Test out clock module on a breadboard.
+   
    Requirements:
      - Alchitry Au Board
-     - Alchitry IO Elements Board
+     - Alchitry Br Board
      - V1.2.4 Alchitry Labs IDE
+     - Raspberry Pi breakout cable (https://www.adafruit.com/product/2028)
+     - various switches and an LED
    IO
-     - io_dip[0][0] auto_manualb clock control (far right switch, far right bank)
-     - io_dip[0][1] halt signal
-     - io_button[0] faster clock button
-     - io_button[1] manual clock control signal (center button)
-     - io_button[2] slower clock button
-     - io_led[0][0] clock pulse indicator (far right LED, far right group)
+     - see br.acf for pin outs
   
    *****************************************************************************/
 
 module au_top (
-    input clk,              // 100MHz clock
-    input rst_n,            // reset button (active low)
-    output led [8],         // 8 user controllable LEDs
-    input usb_rx,           // USB->Serial input
-    output usb_tx,          // USB->Serial output
-    output io_led [3][8],   // LEDs on IO Shield
-    output io_seg [8],      // 7-segment LEDs on IO Shield
-    output io_sel [4],      // Digit select on IO Shield
-    input io_button [5],    // 5 buttons on IO Shield
-    input io_dip [3][8]     // DIP switches on IO Shield
+    input clk,                          // 100MHz clock
+    input rst_n,                        // reset button (active low)
+    output led [8],                     // 8 user controllable LEDs
+    input usb_rx,                       // USB->Serial input
+    output usb_tx,                      // USB->Serial output
+    input manual_clock_advance_button,  // button to manually advance the clock 
+    input faster_button,                // button to speed up the auto clock
+    input slower_button,                // button to slow down the auto clock
+    input auto_manualb_switch,          // switch to set auto clock (high), or manual clock (low)
+    output clock_indicator_led          // output to show clock
   ) {
   
   sig rst;                          // reset signal
-  sig auto_manualb_switch;          // give nice name to auto/manual switch
-  sig manual_clock_advance_button;  // give nice name to advance button
-  sig faster_button;                // give nice name to button speeding up clock
-  sig slower_button;                // give nice name to button slowing down clock
   
   .clk(clk) {
     // The reset conditioner is used to synchronize the reset signal to the FPGA
     // clock. This ensures the entire FPGA comes out of reset at the same time.
     reset_conditioner reset_cond;
-    
-    // Debouncer and edge detector for the faster clock button
-    button_conditioner faster_conditioner;
-    edge_detector faster_edge (#RISE(1), #FALL(0));
-
-    // Debouncer and edge detector for the slower clock button
-    button_conditioner slower_conditioner;
-    edge_detector slower_edge (#RISE(1), #FALL(0));
-    
+        
     .rst(rst) {
-      clock clock;                         // The clock module that we are testing
-      
-      // DFF to store state of current clock period scaler
-      // Provide a default value for our clock period (about 0.16 seconds)
-      dff current_period[29] (#INIT(1 << 24));              
+      clock_digital_fs clock;       // The clock module that we are testing      
     }
   }
   
@@ -91,40 +73,15 @@ module au_top (
     usb_tx = usb_rx;        // loop serial port
     
     led = 8h00;             // turn LEDs off
-    
-    io_led = 3x{{8h00}};    // turn LEDs off
-    io_seg = 8hff;          // turn segments off
-    io_sel = 4hf;           // select no digits
-    
-    // Assign user interface to nice names
-    auto_manualb_switch = io_dip[0][0];
-    manual_clock_advance_button = io_button[1];
-    faster_button = io_button[0];
-    slower_button = io_button[2];
-
-    // Assign faster/slower clock inputs their conditioners and edge detectors
-    faster_conditioner.in = faster_button;
-    slower_conditioner.in = slower_button;
-    faster_edge.in = faster_conditioner.out;
-    slower_edge.in = slower_conditioner.out;
-    
-    // Bit shift right if clock is to go faster (but don't roll off end)
-    if (faster_edge.out & ~current_period.q[0]) {
-      current_period.d = current_period.q >> 1;
-    }
-
-    // Bit shift left if clock is to go slower (but don't overflow)
-    if (slower_edge.out & ~current_period.q[28]) {
-      current_period.d = current_period.q << 1;
-    }
-    
+               
     // Wire up the clock input signals      
-    clock.halt = io_dip[0][1];                         // Wire up halt switch
+    clock.halt = 0;                                    // Default do not halt
     clock.advance = manual_clock_advance_button;       // Wire up manual clock advance button 
     clock.auto_manualb = auto_manualb_switch;          // Wire up auto/manual clock switch
-    clock.period = current_period.q;                   // One period will be fixed to 1 second on the 100Mhz Au board
+    clock.faster = faster_button;                      // Wire up speed up auto clock button
+    clock.slower = slower_button;                      // Wire up slow down auto clock button
 
     // Assign the clock pulse indicator to an LED    
-    io_led[0][0] = clock.clock_indicator;
+    clock_indicator_led = clock.clock_indicator;
   }
 }

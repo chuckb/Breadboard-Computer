@@ -4,4 +4,4 @@ This is a learning project that attempts to recreate [Ben Eater's Breadboard Com
 
 This project is based on the [Alchitry Au](https://www.sparkfun.com/products/16527) and [Alchitry IO Element](https://www.sparkfun.com/products/16525) boards. The Alchitry Labs IDE is used to build and deploy the solution, but I have included the bin files in case you want to use the [Alchitry loader](https://github.com/alchitry/alchitry-loader/) to simply upload the solution to your board.
 
-Instructional videos will follow that will describe the build. Stay tuned...
+Instructional videos are located here: https://www.youtube.com/watch?v=8nVBCiHHYPc&list=PLM8YDhk_PWu1CbEZIOEcjmB464FBymndL
