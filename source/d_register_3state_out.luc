@@ -1,0 +1,35 @@
+module d_register_3state_out (
+    input clk,        // clock
+    input rst,        // reset
+    input d,          // input
+    input g1b,        // data enable active low
+    input g2b,        // data enable active low
+    input m,          // output data control
+    input n,          // output data control
+    output q,         // inverted, buffered output
+    output q_raw      // inverted, unbuffered output      
+  ) {
+
+  inverted_buffer buffer;
+
+  .clk(clk), .rst(rst) {
+    d_register reg;
+  }
+  
+  always {
+    // Pass through IO to underlying d_register
+    reg.d = d;
+    reg.g1b = g1b;
+    reg.g2b = g2b;
+    
+    // Make our buffer happy with input from unbuffered d_register
+    buffer.ab = reg.qb;
+    buffer.enable = ( ~m & ~n );
+    
+    // Assign output of module to buffer output
+    q = buffer.q;
+    
+    // Assign output of module to unbuffered output
+    q_raw = ~reg.qb;
+  }
+}

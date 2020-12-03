@@ -1,0 +1,14 @@
+module inverted_buffer (
+    output q,
+    input ab,
+    input enable
+  ) {
+
+  always {
+    if (enable) {
+      q = ~ab;
+    } else {
+      q = 1bz;
+    }
+  }
+}

@@ -1,5 +1,0 @@
-pin manual_clock_advance_button B27 pulldown;
-pin faster_button B30 pulldown;
-pin slower_button B33 pulldown;
-pin auto_manualb_switch B36 pulldown;
-pin clock_indicator_led B42;
