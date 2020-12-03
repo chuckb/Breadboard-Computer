@@ -27,9 +27,11 @@
 /******************************************************************************
   Ben Eaters Breadboard Computer, Implemented In an FPGA
    
-  Implement a digital faster/slower button interface for clock speed control.
-  Pass the rest of the control signals to the underlying clock module.
-   
+    Module: clock_digital_fs
+    
+    Implement a digital faster/slower button interface for clock speed control.
+    Pass the rest of the control signals to the underlying clock module.
+     
   *****************************************************************************/
 
 module clock_digital_fs (
