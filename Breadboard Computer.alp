@@ -10,6 +10,7 @@
     <component>reset_conditioner.luc</component>
     <component>edge_detector.luc</component>
     <src>d_register_3state_out.luc</src>
+    <component>decoder.luc</component>
     <component>button_conditioner.luc</component>
     <src>clock_digital_fs.luc</src>
     <constraint>io.acf</constraint>

@@ -27,7 +27,7 @@
 /******************************************************************************
   Ben Eaters Breadboard Computer, Implemented In an FPGA
    
-  Test out clock module on a breadboard.
+  Perform register transfers to test out d_registers with tri-state outputs.
    
    Requirements:
      - Alchitry Au Board
@@ -51,6 +51,17 @@ module au_top (
   
   sig rst;                          // reset signal
   
+  // wires to connect together the register signals
+  sig a_output_control;
+  sig a_data_enable;
+  sig b_output_control;
+  sig b_data_enable;
+
+  sig data_bus[8];                  // simple wires that represent the data bus
+  
+  const LOAD = 0;
+  const OUTPUT = 0;
+  
   .clk(clk) {
     // The reset conditioner is used to synchronize the reset signal to the FPGA
     // clock. This ensures the entire FPGA comes out of reset at the same time.
@@ -62,9 +73,10 @@ module au_top (
   }
 
   .rst(rst) {
-    d_register_3state_out reg;
+    d_register_3state_out rega[8];
+    d_register_3state_out regb[8];
   }
-    
+      
   always {
     // Boilerplate initialization code for base Au
     reset_cond.in = ~rst_n; // input raw inverted reset signal
@@ -81,23 +93,52 @@ module au_top (
     
     // Wire up the clock input signals      
     clock.halt = 0;                                    // Default do not halt
-    clock.advance = io_button[1];                     // Wire up manual clock advance button 
-    clock.auto_manualb = io_dip[0][0];                 // Wire up auto/manual clock switch
+    clock.advance = io_button[1];                      // Wire up manual clock advance button 
+    clock.auto_manualb = 1;                             // Hard wire to manual clock mode
     clock.faster = io_button[0];                       // Wire up speed up auto clock button
     clock.slower = io_button[2];                       // Wire up slow down auto clock button
 
     // Assign the clock pulse indicator to an LED    
-    io_led[0][0] = clock.clock_indicator;
+    led[0] = clock.clock_indicator;
+            
+    // Wire up load and output switches for reg a
+    a_data_enable = io_dip[1][0];
+    a_output_control = io_dip[1][1];
     
-    // Wire up the d_register input signals
-    reg.d = io_dip[1][0];
-    reg.g1b = io_dip[1][1];
-    reg.g2b = io_dip[1][2];
-    reg.m = io_dip[1][3];
-    reg.n = io_dip[1][4];
-    reg.clk = clock.out;
+    // Wire up load and output switches for reg a
+    b_data_enable = io_dip[2][0];
+    b_output_control = io_dip[2][1];
     
-    // Assign d_register output
-    io_led[1][0] = reg.q;
-  }
+    data_bus = 8bzzzzzzzz;
+    
+    // Connect bank 0 switches to data bus if nothing being output
+    if (a_output_control & b_output_control)
+      data_bus = io_dip[0];
+    if (~a_output_control)
+      data_bus = rega.q;
+    if (~b_output_control)
+      data_bus = regb.q;
+    
+    // Wire up register a
+    rega.clk = 8x{clock.out};
+ //   data_bus = rega.q;
+    rega.d = data_bus;
+    io_led[1] = rega.q_raw;
+    rega.m = 8x{a_output_control};
+    rega.n = 8x{a_output_control};
+    rega.g1b = 8x{a_data_enable};
+    rega.g2b = 8x{a_data_enable};
+
+    // Wire up register b
+    regb.clk = 8x{clock.out};
+//    data_bus = regb.q;
+    regb.d = data_bus;
+    io_led[2] = regb.q_raw;
+    regb.m = 8x{b_output_control};
+    regb.n = 8x{b_output_control};
+    regb.g1b = 8x{b_data_enable};
+    regb.g2b = 8x{b_data_enable};
+       
+    // Lets see the data_bus
+    io_led[0] = data_bus;        
 }
