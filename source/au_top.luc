@@ -34,6 +34,21 @@
      - Alchitry Br Board
      - V1.2.4 Alchitry Labs IDE
   
+   IO Layout
+     - io_dip[0][0] - clock auto/manualb advance
+     - io_dip[0][1] - loadb a
+     - io_dip[0][2] - loadb b
+     - io_dip[0][3] - output signal s0
+     - io_dip[0[[4] - output signal s1
+     - io_button[0] - clock faster
+     - io_button[2] - clock slower
+     - io_button[1] - clock advance
+     - led[0] - clock pulse
+     - io_led[0] - data bus
+     - io_led[1] - a register state
+     - io_led[2] - b register state
+     
+   
    *****************************************************************************/
 
 module au_top (
@@ -51,6 +66,8 @@ module au_top (
   
   sig rst;                          // reset signal
   
+  sig data_bus[8];
+    
   .clk(clk) {
     // The reset conditioner is used to synchronize the reset signal to the FPGA
     // clock. This ensures the entire FPGA comes out of reset at the same time.
@@ -62,7 +79,8 @@ module au_top (
   }
 
   .rst(rst) {
-    d_register_3state_out reg;
+    d_register reg_a (#WIDTH(8), .clk(clock.out));
+    d_register reg_b (#WIDTH(8), .clk(clock.out));
   }
     
   always {
@@ -78,26 +96,33 @@ module au_top (
     io_led = 3x{{8h00}};    // turn LEDs off
     io_seg = 8hff;          // turn segments off
     io_sel = 4hf;           // select no digits               
-    
+      
     // Wire up the clock input signals      
-    clock.halt = 0;                                    // Default do not halt
-    clock.advance = io_button[1];                     // Wire up manual clock advance button 
-    clock.auto_manualb = io_dip[0][0];                 // Wire up auto/manual clock switch
-    clock.faster = io_button[0];                       // Wire up speed up auto clock button
-    clock.slower = io_button[2];                       // Wire up slow down auto clock button
-
-    // Assign the clock pulse indicator to an LED    
-    io_led[0][0] = clock.clock_indicator;
+    clock.halt = 0;                          // Default do not halt
+    clock.advance = io_button[1];            // Wire up manual clock advance button 
+    clock.auto_manualb = io_dip[0][0];       // Wire up auto/manual clock switch
+    clock.faster = io_button[0];             // Wire up speed up auto clock button
+    clock.slower = io_button[2];             // Wire up slow down auto clock button
+    led[0] = clock.clock_indicator;          // Assign the clock pulse indicator to an LED
     
-    // Wire up the d_register input signals
-    reg.d = io_dip[1][0];
-    reg.g1b = io_dip[1][1];
-    reg.g2b = io_dip[1][2];
-    reg.m = io_dip[1][3];
-    reg.n = io_dip[1][4];
-    reg.clk = clock.out;
+    case (io_dip[0][4:3]) {
+      0:
+        data_bus = reg_a.q;
+      1:
+        data_bus = reg_b.q;
+      2:
+        data_bus = io_dip[1];
+      default:
+        data_bus = 8x{b1z};
+    }
+        
+    reg_a.enableb = io_dip[0][1];
+    reg_a.d = data_bus;
+    reg_b.enableb = io_dip[0][2];
+    reg_b.d = data_bus;
     
-    // Assign d_register output
-    io_led[1][0] = reg.q;
+    io_led[1] = reg_a.q;
+    io_led[2] = reg_b.q;
+    io_led[0] = data_bus;
   }
 }

@@ -29,30 +29,27 @@
    
    Module: d_register
    
-   Implements a 1 bit D-Type register similar as documented for a SN74LS172A.
+   Implements a WIDTH bit D-Type register similar to a SN74LS172A,
+   but does not implement the tri-state output buffer.
    *****************************************************************************/
 
 
-module d_register (
-    input clk,  // clock
-    input rst,  // reset
-    input d,    // input
-    input g1b,  // data enable active low
-    input g2b,  // data enable active low
-    output qb   // inverted output
+module d_register #(
+    WIDTH = 1 : WIDTH > 0 // bit-width of register
+  )(
+    input clk,      // clock
+    input rst,      // reset
+    input d[WIDTH],        // input
+    input enableb,  // data enable active low
+    output q[WIDTH]        // output
   ) {
-
-  sig conditioned_data_enable;
-  sig conditioned_data_enable_b;
   
   .clk(clk), .rst(rst) {
-    dff ff; 
+    dff ff[WIDTH]; 
   }
   
   always {
-    conditioned_data_enable = (~g1b & ~g2b);
-    conditioned_data_enable_b = ~conditioned_data_enable;
-    ff.d = ( (ff.q & conditioned_data_enable_b) | (d & conditioned_data_enable) );
-    qb = ~ff.q;
+    ff.d = ( (ff.q & WIDTHx{enableb}) | (d & WIDTHx{~enableb}) );
+    q = ff.q;
   }
 }

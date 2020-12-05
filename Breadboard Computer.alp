@@ -4,12 +4,12 @@
     <src>d_register.luc</src>
     <src top="true">au_top.luc</src>
     <src>clock.luc</src>
-    <src>inverted_buffer.luc</src>
+    <component>reg_interface.luc</component>
     <component>pipeline.luc</component>
+    <src>ui.luc</src>
     <component>counter.luc</component>
     <component>reset_conditioner.luc</component>
     <component>edge_detector.luc</component>
-    <src>d_register_3state_out.luc</src>
     <component>button_conditioner.luc</component>
     <src>clock_digital_fs.luc</src>
     <constraint>io.acf</constraint>

@@ -1,0 +1,19 @@
+/*
+   IO Layout
+     - io_dip[0][0] - clock auto/manualb advance
+     - io_dip[0][1] - loadb a
+     - io_dip[0][2] - loadb b
+     - io_dip[0][3] - output signal s0
+     - io_dip[0][4] - output signal s1
+       - 0 = reg a
+       - 1 = reg b
+       - 2 = io_dip bank 1
+     - io_button[0] - clock faster
+     - io_button[2] - clock slower
+     - io_button[1] - clock advance
+     - led[0] - clock pulse
+     - io_led[0] - data bus
+     - io_led[1] - a register state
+     - io_led[2] - b register state
+     - io_dip[1] - external data bus input
+   */
