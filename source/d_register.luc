@@ -29,7 +29,7 @@
    
    Module: d_register
    
-   Implements a WIDTH bit D-Type register similar to a SN74LS172A,
+   Implements a WIDTH bit D-Type register similar to a SN74LS173A,
    but does not implement the tri-state output buffer.
    *****************************************************************************/
 
